@@ -1,0 +1,102 @@
+buildscript {
+	ext {
+		springBootVersion = '1.5.9.RELEASE'
+	}
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+group = 'com.ukiuni.spring'
+archivesBaseName = 'viewinjector'
+version = '0.0.1'
+description = 'inject javascript to linked static html.'
+
+sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+
+dependencies {
+	compile group: 'com.google.javascript', name: 'closure-compiler', version: 'v20171203'
+	compile group: 'com.yahoo.platform.yui', name: 'yuicompressor', version: '2.4.8'
+	compileOnly('org.springframework.boot:spring-boot-starter-web')
+	testCompile('org.springframework.boot:spring-boot-starter-web')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+
+signing {
+    sign configurations.archives
+}
+def localRepo = new File(rootDir, "repository")
+
+uploadArchives {
+	repositories {
+		mavenDeployer {
+			if (System.env['RELEASE']?.trim()) {
+				beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+				repository(url: 'https://oss.sonatype.org/service/local/staging/deploy/maven2/') {
+					authentication(userName: sonatypeUsername, password: sonatypePassword)
+				}
+			} else if (System.env['CI']?.trim()) {
+				version += '-SNAPSHOT'
+				repository(url: 'https://oss.sonatype.org/content/repositories/snapshots/') {
+					authentication(userName: sonatypeUsername, password: sonatypePassword)
+				}
+			} else {
+				repository url: "file://${localRepo.absolutePath}"
+			}
+			pom.version = version
+			pom.groupId = group
+			pom.artifactId = archivesBaseName
+		}
+	}
+}
+[install.repositories.mavenInstaller, uploadArchives.repositories.mavenDeployer]*.pom*.whenConfigured { pom ->
+    pom.project {
+        inceptionYear '2017'
+        packaging 'jar'
+        licenses {
+            license {
+                name 'The Apache Software License, Version 2.0'
+                url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                distribution 'repo'
+            }
+        }
+		scm {
+			url "scm:git@github.com:ukiuni/SpringBootViewInjector.git"
+			connection "scm:git@github.com:ukiuni/SpringBootViewInjector.git"
+			developerConnection "scm:git@github.com:ukiuni/SpringBootViewInjector.git"
+		}
+		developers {
+			developer {
+				id 'ukiuni'
+				name 'ukiuni'
+				email 'ukiuni@gmail.com'
+			}
+		}
+    }
+}
+task sourcesJar(type: Jar, dependsOn:classes) {
+	classifier = 'sources'
+	from sourceSets.main.allSource
+}
+task javadocJar(type: Jar, dependsOn:javadoc) {
+     classifier = 'javadoc'
+     from javadoc.destinationDir
+}
+artifacts {
+	archives sourcesJar
+	archives javadocJar
+}
