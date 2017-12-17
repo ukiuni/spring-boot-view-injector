@@ -16,8 +16,8 @@ apply plugin: 'org.springframework.boot'
 apply plugin: 'maven'
 apply plugin: 'signing'
 
-group = 'com.ukiuni.spring'
-archivesBaseName = 'viewinjector'
+group = 'com.ukiuni'
+archivesBaseName = 'spring-boot-view-injector'
 version = '0.0.1'
 description = 'inject javascript to linked static html.'
 
@@ -31,7 +31,11 @@ repositories {
 dependencies {
 	compile group: 'com.google.javascript', name: 'closure-compiler', version: 'v20171203'
 	compile group: 'com.yahoo.platform.yui', name: 'yuicompressor', version: '2.4.8'
+	
+	compileOnly('org.projectlombok:lombok')
 	compileOnly('org.springframework.boot:spring-boot-starter-web')
+	
+	testCompileOnly('org.projectlombok:lombok')
 	testCompile('org.springframework.boot:spring-boot-starter-web')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
@@ -58,7 +62,7 @@ uploadArchives {
 				repository url: "file://${localRepo.absolutePath}"
 			}
 			pom.version = version
-			pom.groupId = group
+			pom.groupId = 'com.ukiuni'
 			pom.artifactId = archivesBaseName
 		}
 	}

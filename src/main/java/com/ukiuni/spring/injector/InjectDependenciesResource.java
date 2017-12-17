@@ -29,16 +29,16 @@ import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.WarningLevel;
 import com.yahoo.platform.yui.compressor.CssCompressor;
 
-public class OpenDependenciesResource implements Resource {
+public class InjectDependenciesResource implements Resource {
 	private final Resource resource;
 	private static final Pattern htmlReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
-	private static final Pattern jsReplacePattern = Pattern.compile("inject\\(\\s*\"(.*)\"\\s*\\)");
+	private static final Pattern jsReplacePattern = Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
-	private boolean compless = true;
-	private boolean complessCss = true;
+	private InjectDependenciesResourceOperations operations;
 
-	public OpenDependenciesResource(HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
+	public InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
+		this.operations = null != operations ? operations : new InjectDependenciesResourceOperations();
 		this.resource = resource;
 		if (null == resource || !resource.exists()) {
 			contentsLength = -1;
@@ -73,10 +73,10 @@ public class OpenDependenciesResource implements Resource {
 
 	private String createParts(HttpServletRequest request, ResourceHttpRequestHandler handler, String pathInResource) throws MalformedURLException, IOException {
 		String targetURL = pathInResource.startsWith("http://") || pathInResource.startsWith("https://") ? pathInResource : new URL(new URL(request.getRequestURL().toString()), pathInResource).getPath().substring(request.getContextPath().length());
-		Resource loadResource = handler.getResourceResolvers().stream().map(r -> r.resolveResource(request, targetURL, handler.getLocations(), null)).map(r -> new OpenDependenciesResource(request, r, handler)).findFirst().get();
+		Resource loadResource = handler.getResourceResolvers().stream().map(r -> r.resolveResource(request, targetURL, handler.getLocations(), null)).map(r -> new InjectDependenciesResource(this.operations, request, r, handler)).findFirst().get();
 
 		String source;
-		if (this.compless && pathInResource.endsWith(".js") && !pathInResource.endsWith("min.js")) {
+		if (this.operations.complessJS && pathInResource.endsWith(".js") && !pathInResource.endsWith("min.js")) {
 			SourceFile file = SourceFile.fromInputStream(new File(pathInResource).getName(), loadResource.getInputStream(), Charset.forName("UTF-8"));
 			Compiler compiler = new Compiler();
 			CompilerOptions options = new CompilerOptions();
@@ -88,7 +88,7 @@ public class OpenDependenciesResource implements Resource {
 			}
 			compiler.disableThreads();
 			source = compiler.toSource();
-		} else if (this.complessCss && pathInResource.endsWith(".css") && !pathInResource.endsWith("min.css")) {
+		} else if (this.operations.complessCss && pathInResource.endsWith(".css") && !pathInResource.endsWith("min.css")) {
 			StringWriter writer = new StringWriter();
 			new CssCompressor(new InputStreamReader(loadResource.getInputStream(), Charset.forName("UTF-8"))).compress(writer, -1);
 			source = writer.toString();
