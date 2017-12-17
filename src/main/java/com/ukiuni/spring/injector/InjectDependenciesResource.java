@@ -10,7 +10,10 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -27,12 +30,14 @@ import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.WarningLevel;
+import com.ukiuni.spring.injector.replacer.Replacer;
 import com.yahoo.platform.yui.compressor.CssCompressor;
 
 public class InjectDependenciesResource implements Resource {
 	private final Resource resource;
-	private static final Pattern htmlReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
 	private static final Pattern jsReplacePattern = Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
+	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
+	private static final Pattern cssTagReplacePattern = Pattern.compile("<\\s*link\\s+.*href=\"(.*)\".*>");
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
 	private InjectDependenciesResourceOperations operations;
@@ -48,22 +53,59 @@ public class InjectDependenciesResource implements Resource {
 		try {
 			String body = StreamUtils.copyToString(resource.getInputStream(), Charset.forName("UTF-8"));
 			boolean isJS = resource.getFilename().endsWith(".js");
-			Matcher m = (isJS ? jsReplacePattern : htmlReplacePattern).matcher(body);
-			StringBuffer sb = new StringBuffer();
-			while (m.find()) {
-				String pathInResource = m.group(1);
-				String appendsParts = createParts(request, handler, pathInResource);
-				if (isJS) {
-					appendsParts = "\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"";// TODO リプレイスが足りない？
-					appendsParts = Matcher.quoteReplacement(appendsParts);
-				} else {
-					appendsParts = "<script>" + Matcher.quoteReplacement(appendsParts) + "</script>";
-				}
-				m.appendReplacement(sb, appendsParts);
+			List<Replacer> replacers = new ArrayList<>();
+			if (isJS) {
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return jsReplacePattern;
+					}
+
+					public Function<String, String> getReplaceFunction() {
+						return appendsParts -> Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"");
+					}
+				});
+			} else {
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return jsTagReplacePattern;
+					}
+
+					public Function<String, String> getReplaceFunction() {
+						return appendsParts -> "<script>" + Matcher.quoteReplacement(appendsParts) + "</script>";
+					}
+
+				});
+
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return cssTagReplacePattern;
+					}
+
+					public Function<String, String> getReplaceFunction() {
+						return appendsParts -> "<style type=\"text/css\">" + Matcher.quoteReplacement(appendsParts) + "</style>";
+					}
+
+					public boolean target(Matcher m) {
+						return m.group(0).contains("stylesheet");
+					};
+				});
 			}
-			m.appendTail(sb);
-			String joined = sb.toString();
-			byte[] resourceBytes = joined.getBytes(Charset.forName("UTF-8"));
+			for (Replacer replacer : replacers) {
+				Matcher m = replacer.getPattern().matcher(body);
+				StringBuffer sb = new StringBuffer();
+				while (m.find()) {
+					if (!replacer.target(m)) {
+						continue;
+					}
+					String pathInResource = m.group(1);
+					String appendsParts = createParts(request, handler, pathInResource);
+					appendsParts = replacer.getReplaceFunction().apply(appendsParts);
+					m.appendReplacement(sb, appendsParts);
+				}
+				m.appendTail(sb);
+				body = sb.toString();
+			}
+			byte[] resourceBytes = body.getBytes(Charset.forName("UTF-8"));
 			contentsLength = resourceBytes.length;
 			resourceInputStream = new ByteArrayInputStream(resourceBytes);
 		} catch (IOException e) {

@@ -14,7 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.StreamUtils;
 
@@ -37,6 +36,7 @@ public class NoComplessInjectorTests {
 	public void injected() throws MalformedURLException, IOException {
 		HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
 		String src = StreamUtils.copyToString(connection.getInputStream(), Charset.forName("UTF-8"));
+		System.out.println(src);
 		Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/injectedNotComplessedResult.html"), Charset.forName("UTF-8")), src);
 	}
 }
