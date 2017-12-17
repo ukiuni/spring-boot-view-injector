@@ -12,6 +12,7 @@ import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -38,12 +39,13 @@ public class InjectDependenciesResource implements Resource {
 	private static final Pattern jsReplacePattern = Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
 	private static final Pattern cssTagReplacePattern = Pattern.compile("<\\s*link\\s+.*href=\"(.*)\".*>");
+	private static final Pattern imgTagReplacePattern = Pattern.compile("<\\s*img\\s+.*src=\"(.*)\".*>");
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
 	private InjectDependenciesResourceOperations operations;
 
 	public InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
-		this.operations = null != operations ? operations : new InjectDependenciesResourceOperations();
+		this.operations = null != operations ? operations : InjectDependenciesResourceOperations.of(true, true, true, true, true, true);
 		this.resource = resource;
 		if (null == resource || !resource.exists()) {
 			contentsLength = -1;
@@ -52,41 +54,56 @@ public class InjectDependenciesResource implements Resource {
 		}
 		try {
 			String body = StreamUtils.copyToString(resource.getInputStream(), Charset.forName("UTF-8"));
-			boolean isJS = resource.getFilename().endsWith(".js");
 			List<Replacer> replacers = new ArrayList<>();
-			if (isJS) {
+			if (this.operations.isInjectToJS()) {
 				replacers.add(new Replacer() {
 					public Pattern getPattern() {
 						return jsReplacePattern;
 					}
 
-					public Function<String, String> getReplaceFunction() {
+					public Function<String, String> getReplaceFunction(Matcher m) {
 						return appendsParts -> Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"");
 					}
 				});
-			} else {
+			}
+			if (this.operations.isInjectJSToHTML()) {
 				replacers.add(new Replacer() {
 					public Pattern getPattern() {
 						return jsTagReplacePattern;
 					}
 
-					public Function<String, String> getReplaceFunction() {
+					public Function<String, String> getReplaceFunction(Matcher m) {
 						return appendsParts -> "<script>" + Matcher.quoteReplacement(appendsParts) + "</script>";
 					}
-
 				});
-
+			}
+			if (this.operations.isInjectCssToHTML()) {
 				replacers.add(new Replacer() {
 					public Pattern getPattern() {
 						return cssTagReplacePattern;
 					}
 
-					public Function<String, String> getReplaceFunction() {
+					public Function<String, String> getReplaceFunction(Matcher m) {
 						return appendsParts -> "<style type=\"text/css\">" + Matcher.quoteReplacement(appendsParts) + "</style>";
 					}
 
 					public boolean target(Matcher m) {
 						return m.group(0).contains("stylesheet");
+					};
+				});
+			}
+			if (this.operations.isInjectImageToHTML()) {
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return imgTagReplacePattern;
+					}
+
+					public Function<String, String> getReplaceFunction(Matcher m) {
+						return appendsParts -> m.group(0).replaceAll("src=\".*\"", "src=\"" + Matcher.quoteReplacement(appendsParts) + "\"");
+					}
+
+					public boolean target(Matcher m) {
+						return true;
 					};
 				});
 			}
@@ -99,7 +116,7 @@ public class InjectDependenciesResource implements Resource {
 					}
 					String pathInResource = m.group(1);
 					String appendsParts = createParts(request, handler, pathInResource);
-					appendsParts = replacer.getReplaceFunction().apply(appendsParts);
+					appendsParts = replacer.getReplaceFunction(m).apply(appendsParts);
 					m.appendReplacement(sb, appendsParts);
 				}
 				m.appendTail(sb);
@@ -115,10 +132,18 @@ public class InjectDependenciesResource implements Resource {
 
 	private String createParts(HttpServletRequest request, ResourceHttpRequestHandler handler, String pathInResource) throws MalformedURLException, IOException {
 		String targetURL = pathInResource.startsWith("http://") || pathInResource.startsWith("https://") ? pathInResource : new URL(new URL(request.getRequestURL().toString()), pathInResource).getPath().substring(request.getContextPath().length());
-		Resource loadResource = handler.getResourceResolvers().stream().map(r -> r.resolveResource(request, targetURL, handler.getLocations(), null)).map(r -> new InjectDependenciesResource(this.operations, request, r, handler)).findFirst().get();
+		Resource loadResource = handler.getResourceResolvers().stream().map(r -> r.resolveResource(request, targetURL, handler.getLocations(), null)).map(r -> {
+			if (null == r) {
+				return new EmptyResource();
+			} else if (r.getFilename().endsWith(".js") || r.getFilename().endsWith(".css") || r.getFilename().endsWith(".html") || r.getFilename().endsWith(".htm")) {
+				return new InjectDependenciesResource(this.operations, request, r, handler);
+			} else {
+				return r;
+			}
+		}).findFirst().get();
 
 		String source;
-		if (this.operations.complessJS && pathInResource.endsWith(".js") && !pathInResource.endsWith("min.js")) {
+		if (this.operations.isComplessJS() && pathInResource.endsWith(".js") && !pathInResource.endsWith("min.js")) {
 			SourceFile file = SourceFile.fromInputStream(new File(pathInResource).getName(), loadResource.getInputStream(), Charset.forName("UTF-8"));
 			Compiler compiler = new Compiler();
 			CompilerOptions options = new CompilerOptions();
@@ -130,10 +155,16 @@ public class InjectDependenciesResource implements Resource {
 			}
 			compiler.disableThreads();
 			source = compiler.toSource();
-		} else if (this.operations.complessCss && pathInResource.endsWith(".css") && !pathInResource.endsWith("min.css")) {
+		} else if (this.operations.isComplessCss() && pathInResource.endsWith(".css") && !pathInResource.endsWith("min.css")) {
 			StringWriter writer = new StringWriter();
 			new CssCompressor(new InputStreamReader(loadResource.getInputStream(), Charset.forName("UTF-8"))).compress(writer, -1);
 			source = writer.toString();
+		} else if (pathInResource.endsWith(".png")) {
+			String data = Base64.getEncoder().encodeToString(StreamUtils.copyToByteArray(loadResource.getInputStream()));
+			source = "data:image/png;base64," + data;
+		} else if (pathInResource.endsWith(".jpg") || pathInResource.endsWith(".jpeg")) {
+			String data = Base64.getEncoder().encodeToString(StreamUtils.copyToByteArray(loadResource.getInputStream()));
+			source = "data:image/jpg;base64," + data;
 		} else {
 			source = StreamUtils.copyToString(loadResource.getInputStream(), Charset.forName("UTF-8"));
 		}

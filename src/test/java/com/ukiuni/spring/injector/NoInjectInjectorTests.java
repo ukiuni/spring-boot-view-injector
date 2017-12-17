@@ -19,13 +19,13 @@ import org.springframework.util.StreamUtils;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-public class NoComplessInjectorTests {
+public class NoInjectInjectorTests {
 
 	@TestConfiguration
 	static class Config {
 		@Bean
 		public InjectDependenciesResourceOperations loadOperations() {
-			return InjectDependenciesResourceOperations.of(false, false, true, true, true, true);
+			return InjectDependenciesResourceOperations.of(false, false, false, false, false, false);
 		}
 	}
 
@@ -36,6 +36,6 @@ public class NoComplessInjectorTests {
 	public void injected() throws MalformedURLException, IOException {
 		HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
 		String src = StreamUtils.copyToString(connection.getInputStream(), Charset.forName("UTF-8"));
-		Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/injectedNotComplessedResult.html"), Charset.forName("UTF-8")), src);
+		Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/NotInjected.html"), Charset.forName("UTF-8")), src);
 	}
 }

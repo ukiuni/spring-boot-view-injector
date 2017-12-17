@@ -26,7 +26,12 @@ public class SpringBootViewInjectorConfig implements ApplicationListener<Context
 		handler.getResourceTransformers().add(new ResourceTransformer() {
 			@Override
 			public Resource transform(HttpServletRequest request, Resource resource, ResourceTransformerChain transformerChain) throws IOException {
-				return new InjectDependenciesResource(operations, request, resource, handler);
+				String fileName = resource.getFilename();
+				if (fileName.endsWith(".js") || fileName.endsWith(".html") || fileName.endsWith(".htm")) {
+					return new InjectDependenciesResource(operations, request, resource, handler);
+				} else {
+					return resource;
+				}
 			}
 		});
 	}
