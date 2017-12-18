@@ -1,4 +1,4 @@
-package com.ukiuni.spring.injector;
+package com.ukiuni.spring.noInjectorPackage;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -14,20 +14,23 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.StreamUtils;
 
+import com.ukiuni.spring.injector.InjectDependenciesResourceOperations;
+
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-public class NoInjectInjectorTests {
-
-	@TestConfiguration
-	static class Config {
-		@Bean
-		public InjectDependenciesResourceOperations loadOperations() {
-			return InjectDependenciesResourceOperations.of(false, false, false, false, false, false);
-		}
-	}
+@TestPropertySource(properties = { //
+		"spring.injector.complessJS=false", //
+		"spring.injector.complessCss=false", //
+		"spring.injector.injectJSToHTML=false", //
+		"spring.injector.injectCssToHTML=true", //
+		"spring.injector.injectImageToHTML=false", //
+		"spring.injector.injectToJS=false"//
+})
+public class InjectByConfigComplessInjectorTests {
 
 	@LocalServerPort
 	int port;
@@ -36,6 +39,6 @@ public class NoInjectInjectorTests {
 	public void injected() throws MalformedURLException, IOException {
 		HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
 		String src = StreamUtils.copyToString(connection.getInputStream(), Charset.forName("UTF-8"));
-		Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/NotInjected.html"), Charset.forName("UTF-8")), src);
+		Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/injectOnlyCss.html"), Charset.forName("UTF-8")), src);
 	}
 }

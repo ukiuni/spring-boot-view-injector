@@ -6,6 +6,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.core.io.Resource;
@@ -15,9 +16,10 @@ import org.springframework.web.servlet.resource.ResourceTransformer;
 import org.springframework.web.servlet.resource.ResourceTransformerChain;
 
 @Configuration
+@ComponentScan(basePackageClasses = SpringBootViewInjectorConfig.class)
 public class SpringBootViewInjectorConfig implements ApplicationListener<ContextRefreshedEvent> {
 
-	@Autowired(required = false)
+	@Autowired
 	InjectDependenciesResourceOperations operations;
 
 	@Override
@@ -28,7 +30,7 @@ public class SpringBootViewInjectorConfig implements ApplicationListener<Context
 			public Resource transform(HttpServletRequest request, Resource resource, ResourceTransformerChain transformerChain) throws IOException {
 				String fileName = resource.getFilename();
 				if (fileName.endsWith(".js") || fileName.endsWith(".html") || fileName.endsWith(".htm")) {
-					return new InjectDependenciesResource(operations, request, resource, handler);
+					return new InjectDependenciesResource(SpringBootViewInjectorConfig.this.operations, request, resource, handler);
 				} else {
 					return resource;
 				}
