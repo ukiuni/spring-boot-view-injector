@@ -69,6 +69,9 @@ uploadArchives {
 }
 [install.repositories.mavenInstaller, uploadArchives.repositories.mavenDeployer]*.pom*.whenConfigured { pom ->
     pom.project {
+        name archivesBaseName
+        description 'Inject contents(javaScript, css, html) to static html and javaScript'
+        url 'https://github.com/ukiuni/spring-boot-view-injector'
         inceptionYear '2017'
         packaging 'jar'
         licenses {
@@ -79,9 +82,9 @@ uploadArchives {
             }
         }
 		scm {
-			url "scm:git@github.com:ukiuni/SpringBootViewInjector.git"
-			connection "scm:git@github.com:ukiuni/SpringBootViewInjector.git"
-			developerConnection "scm:git@github.com:ukiuni/SpringBootViewInjector.git"
+			url "scm:git@github.com:ukiuni/spring-boot-view-injector.git"
+			connection "scm:git@github.com:ukiuni/spring-boot-view-injector.git"
+			developerConnection "scm:git@github.com:ukiuni/spring-boot-view-injector.git"
 		}
 		developers {
 			developer {
