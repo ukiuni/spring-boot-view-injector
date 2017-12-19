@@ -34,6 +34,7 @@ import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
+import com.google.javascript.jscomp.StrictWarningsGuard;
 import com.google.javascript.jscomp.WarningLevel;
 import com.ukiuni.spring.injector.replacer.Replacer;
 import com.yahoo.platform.yui.compressor.CssCompressor;
@@ -189,6 +190,9 @@ public class InjectDependenciesResource implements Resource {
 			CompilerOptions options = new CompilerOptions();
 			CompilationLevel.WHITESPACE_ONLY.setOptionsForCompilationLevel(options);
 			WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+			options.setStrictModeInput(false);
+			options.setAssumeStrictThis(false);
+			options.setEmitUseStrict(false);
 			Result result = compiler.compile(SourceFile.fromCode("dummy.js", ""), file, options);
 			if (!result.success) {
 				throw new RuntimeException("Closure Compiler returned error " + Arrays.asList(result.errors).stream().map(r -> r.toString()).collect(Collectors.joining(",")));
