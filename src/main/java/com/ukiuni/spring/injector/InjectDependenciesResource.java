@@ -6,13 +6,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -22,6 +25,7 @@ import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
@@ -37,6 +41,7 @@ import com.yahoo.platform.yui.compressor.CssCompressor;
 public class InjectDependenciesResource implements Resource {
 	private final Resource resource;
 	private static final Pattern jsReplacePattern = Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
+	private static final Pattern jsInJSReplacePattern = Pattern.compile("\\$\\$injectJS\\(\\s*\"(.*)\"\\s*\\)");
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
 	private static final Pattern cssTagReplacePattern = Pattern.compile("<\\s*link\\s+.*href=\"(.*)\".*>");
 	private static final Pattern imgTagReplacePattern = Pattern.compile("<\\s*img\\s+.*src=\"(.*)\".*>");
@@ -66,6 +71,17 @@ public class InjectDependenciesResource implements Resource {
 					}
 				});
 			}
+			if (this.operations.isInjectToJS()) {
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return jsInJSReplacePattern;
+					}
+
+					public Function<String, String> getReplaceFunction(Matcher m) {
+						return appendsParts -> Matcher.quoteReplacement(appendsParts);
+					}
+				});
+			}
 			if (this.operations.isInjectJSToHTML()) {
 				replacers.add(new Replacer() {
 					public Pattern getPattern() {
@@ -75,6 +91,10 @@ public class InjectDependenciesResource implements Resource {
 					public Function<String, String> getReplaceFunction(Matcher m) {
 						return appendsParts -> "<script>" + Matcher.quoteReplacement(appendsParts) + "</script>";
 					}
+
+					public boolean target(Matcher m) {
+						return !(m.group(1).startsWith("http://") || m.group(1).startsWith("https://"));
+					};
 				});
 			}
 			if (this.operations.isInjectCssToHTML()) {
@@ -131,16 +151,36 @@ public class InjectDependenciesResource implements Resource {
 	}
 
 	private String createParts(HttpServletRequest request, ResourceHttpRequestHandler handler, String pathInResource) throws MalformedURLException, IOException {
-		String targetURL = pathInResource.startsWith("http://") || pathInResource.startsWith("https://") ? pathInResource : new URL(new URL(request.getRequestURL().toString()), pathInResource).getPath().substring(request.getContextPath().length());
-		Resource loadResource = handler.getResourceResolvers().stream().map(r -> r.resolveResource(request, targetURL, handler.getLocations(), null)).map(r -> {
-			if (null == r) {
-				return new EmptyResource();
-			} else if (r.getFilename().endsWith(".js") || r.getFilename().endsWith(".css") || r.getFilename().endsWith(".html") || r.getFilename().endsWith(".htm")) {
-				return new InjectDependenciesResource(this.operations, request, r, handler);
-			} else {
-				return r;
-			}
-		}).findFirst().get();
+		boolean isHttp = pathInResource.startsWith("http://") || pathInResource.startsWith("https://");
+		Resource loadResource;
+		if (isHttp) {
+			loadResource = new UrlResource(pathInResource) {
+				@Override
+				public InputStream getInputStream() throws IOException {
+					URLConnection con = new URL(pathInResource).openConnection();
+					Collections.list(request.getHeaderNames()).stream().forEach((k) -> con.setRequestProperty(k, request.getHeader(k)));
+					try {
+						return con.getInputStream();
+					} catch (IOException ex) {
+						if (con instanceof HttpURLConnection) {
+							((HttpURLConnection) con).disconnect();
+						}
+						throw ex;
+					}
+				}
+			};
+		} else {
+			String targetURL = new URL(new URL(request.getRequestURL().toString()), pathInResource).getPath().substring(request.getContextPath().length());
+			loadResource = handler.getResourceResolvers().stream().map(r -> r.resolveResource(request, targetURL, handler.getLocations(), null)).map(r -> {
+				if (null == r) {
+					return new EmptyResource();
+				} else if (r.getFilename().endsWith(".js") || r.getFilename().endsWith(".css") || r.getFilename().endsWith(".html") || r.getFilename().endsWith(".htm")) {
+					return new InjectDependenciesResource(this.operations, request, r, handler);
+				} else {
+					return r;
+				}
+			}).findFirst().get();
+		}
 
 		String source;
 		if (this.operations.isComplessJS() && pathInResource.endsWith(".js") && !pathInResource.endsWith("min.js")) {
