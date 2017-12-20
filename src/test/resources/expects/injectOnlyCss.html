@@ -6,7 +6,10 @@
 <script type="text/javascript"
 	src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
 <script type="text/javascript">
-	var arg = $$injectJS("http://localhost:8080/api")
+	/** @injectJS("http://localhost:8080/api") */
+	var arg = null;
+	/** @inject("http://localhost:8080/api") */
+	var arg2 = "test";
 </script>
 <script type="application/javascript" src="js/app1.js"></script>
 <style type="text/css">body /*this is good for you*/ {

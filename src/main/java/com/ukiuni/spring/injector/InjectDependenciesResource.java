@@ -34,22 +34,27 @@ import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
-import com.google.javascript.jscomp.StrictWarningsGuard;
 import com.google.javascript.jscomp.WarningLevel;
 import com.ukiuni.spring.injector.replacer.Replacer;
 import com.yahoo.platform.yui.compressor.CssCompressor;
 
 public class InjectDependenciesResource implements Resource {
 	private final Resource resource;
-	private static final Pattern jsReplacePattern = Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
-	private static final Pattern jsInJSReplacePattern = Pattern.compile("\\$\\$injectJS\\(\\s*\"(.*)\"\\s*\\)");
+	// private static final Pattern jsReplacePattern =
+	// Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
+	// private static final Pattern jsInJSReplacePattern =
+	// Pattern.compile("\\$\\$injectJS\\(\\s*\"(.*)\"\\s*\\)");
+	private static final Pattern jsReplacePatternParam = Pattern.compile("\\/\\*\\*\\s*@inject\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n\\s*(var|const)?\\s*(\\S*)\\s*=(.*)([;|\\n])");
+	private static final Pattern jsReplacePatternJSON = Pattern.compile("\\/\\*\\*\\s*@inject\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n?\\s*(\\S*)\\s*:.*(,|}])");
+	private static final Pattern jsInJSReplacePatternParam = Pattern.compile("\\/\\*\\*\\s*@injectJS\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n\\s*(var|const)?\\s*(\\S*)\\s*=(.*)([;|\\n])");
+	private static final Pattern jsInJSReplacePatternJSON = Pattern.compile("\\/\\*\\*\\s*@injectJS\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n?\\s*(.\\S):.*(,|}])");
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
 	private static final Pattern cssTagReplacePattern = Pattern.compile("<\\s*link\\s+.*href=\"(.*)\".*>");
 	private static final Pattern imgTagReplacePattern = Pattern.compile("<\\s*img\\s+.*src=\"(.*)\".*>");
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
 	private InjectDependenciesResourceOperations operations;
-
+	
 	public InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
 		this.operations = null != operations ? operations : InjectDependenciesResourceOperations.of(true, true, true, true, true, true);
 		this.resource = resource;
@@ -64,22 +69,38 @@ public class InjectDependenciesResource implements Resource {
 			if (this.operations.isInjectToJS()) {
 				replacers.add(new Replacer() {
 					public Pattern getPattern() {
-						return jsReplacePattern;
+						return jsReplacePatternParam;
 					}
 
 					public Function<String, String> getReplaceFunction(Matcher m) {
-						return appendsParts -> Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"");
+						return appendsParts -> m.group(2) + " " + m.group(3) + " = " + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group(5);
 					}
 				});
-			}
-			if (this.operations.isInjectToJS()) {
 				replacers.add(new Replacer() {
 					public Pattern getPattern() {
-						return jsInJSReplacePattern;
+						return jsReplacePatternJSON;
 					}
 
 					public Function<String, String> getReplaceFunction(Matcher m) {
-						return appendsParts -> Matcher.quoteReplacement(appendsParts);
+						return appendsParts -> m.group(2) + ":" + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group(3);
+					}
+				});
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return jsInJSReplacePatternParam;
+					}
+
+					public Function<String, String> getReplaceFunction(Matcher m) {
+						return appendsParts -> m.group(2) + " " + m.group(3) + " = " + Matcher.quoteReplacement(appendsParts) + m.group(5);
+					}
+				});
+				replacers.add(new Replacer() {
+					public Pattern getPattern() {
+						return jsInJSReplacePatternJSON;
+					}
+
+					public Function<String, String> getReplaceFunction(Matcher m) {
+						return appendsParts -> m.group(2) + " : " + Matcher.quoteReplacement(appendsParts) + m.group(3);
 					}
 				});
 			}

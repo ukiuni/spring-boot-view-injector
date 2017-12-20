@@ -6,12 +6,15 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.embedded.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.StreamUtils;
@@ -27,6 +30,17 @@ import org.springframework.util.StreamUtils;
 		"spring.injector.injectToJS=false"//
 })
 public class NoInjectInjectorTests {
+	private static ConfigurableApplicationContext context;
+
+	@Autowired
+	public void putContext(ConfigurableApplicationContext context) {
+		NoInjectInjectorTests.context = context;
+	}
+
+	@AfterClass
+	public static void stopServer() {
+		context.close();
+	}
 
 	@LocalServerPort
 	int port;
