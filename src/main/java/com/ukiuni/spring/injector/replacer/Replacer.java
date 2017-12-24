@@ -12,4 +12,8 @@ public interface Replacer {
 	public default boolean target(Matcher m) {
 		return true;
 	}
+
+	public default String getResource(Matcher m) {
+		return m.group(1);
+	}
 }

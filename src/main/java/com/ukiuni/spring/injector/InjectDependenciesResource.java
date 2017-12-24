@@ -40,21 +40,23 @@ import com.yahoo.platform.yui.compressor.CssCompressor;
 
 public class InjectDependenciesResource implements Resource {
 	private final Resource resource;
-	// private static final Pattern jsReplacePattern =
-	// Pattern.compile("\\$\\$inject\\(\\s*\"(.*)\"\\s*\\)");
-	// private static final Pattern jsInJSReplacePattern =
-	// Pattern.compile("\\$\\$injectJS\\(\\s*\"(.*)\"\\s*\\)");
-	private static final Pattern jsReplacePatternParam = Pattern.compile("\\/\\*\\*\\s*@inject\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n\\s*(var|const)?\\s*(\\S*)\\s*=(.*)([;|\\n])");
-	private static final Pattern jsReplacePatternJSON = Pattern.compile("\\/\\*\\*\\s*@inject\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n?\\s*(\\S*)\\s*:.*(,|}])");
-	private static final Pattern jsInJSReplacePatternParam = Pattern.compile("\\/\\*\\*\\s*@injectJS\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n\\s*(var|const)?\\s*(\\S*)\\s*=(.*)([;|\\n])");
-	private static final Pattern jsInJSReplacePatternJSON = Pattern.compile("\\/\\*\\*\\s*@injectJS\\(\\s*\"(.*)\"\\s*\\)\\s*\\*\\/\\n?\\s*(.\\S):.*(,|}])");
+	private static final Pattern jsReplacePatternParam;
+	static {
+		String blockPattern = "(\\{(%s[^\\}]*?)*?\\})*?";
+		for (int i = 0; i < 5; i++) {
+			blockPattern = String.format(blockPattern, blockPattern + "|");
+		}
+		blockPattern = String.format(blockPattern, "");
+		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectJS){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>function\\s*\\(\\s*\\)\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)(.|blockPattern)*?))\\s*(?<end>;|\\n|,))";
+		jsReplacePatternParam = Pattern.compile(patternSrc);
+	}
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
 	private static final Pattern cssTagReplacePattern = Pattern.compile("<\\s*link\\s+.*href=\"(.*)\".*>");
 	private static final Pattern imgTagReplacePattern = Pattern.compile("<\\s*img\\s+.*src=\"(.*)\".*>");
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
 	private InjectDependenciesResourceOperations operations;
-	
+
 	public InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
 		this.operations = null != operations ? operations : InjectDependenciesResourceOperations.of(true, true, true, true, true, true);
 		this.resource = resource;
@@ -72,35 +74,17 @@ public class InjectDependenciesResource implements Resource {
 						return jsReplacePatternParam;
 					}
 
-					public Function<String, String> getReplaceFunction(Matcher m) {
-						return appendsParts -> m.group(2) + " " + m.group(3) + " = " + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group(5);
-					}
-				});
-				replacers.add(new Replacer() {
-					public Pattern getPattern() {
-						return jsReplacePatternJSON;
+					@Override
+					public String getResource(Matcher m) {
+						return m.group("resource");
 					}
 
 					public Function<String, String> getReplaceFunction(Matcher m) {
-						return appendsParts -> m.group(2) + ":" + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group(3);
-					}
-				});
-				replacers.add(new Replacer() {
-					public Pattern getPattern() {
-						return jsInJSReplacePatternParam;
-					}
-
-					public Function<String, String> getReplaceFunction(Matcher m) {
-						return appendsParts -> m.group(2) + " " + m.group(3) + " = " + Matcher.quoteReplacement(appendsParts) + m.group(5);
-					}
-				});
-				replacers.add(new Replacer() {
-					public Pattern getPattern() {
-						return jsInJSReplacePatternJSON;
-					}
-
-					public Function<String, String> getReplaceFunction(Matcher m) {
-						return appendsParts -> m.group(2) + " : " + Matcher.quoteReplacement(appendsParts) + m.group(3);
+						if ("inject".equals(m.group("command"))) {
+							return appendsParts -> m.group("def") + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group("end");
+						} else {
+							return appendsParts -> m.group("def") + Matcher.quoteReplacement(appendsParts) + ";";
+						}
 					}
 				});
 			}
@@ -156,10 +140,13 @@ public class InjectDependenciesResource implements Resource {
 					if (!replacer.target(m)) {
 						continue;
 					}
-					String pathInResource = m.group(1);
+					String pathInResource = replacer.getResource(m);
 					String appendsParts = createParts(request, handler, pathInResource);
 					appendsParts = replacer.getReplaceFunction(m).apply(appendsParts);
 					m.appendReplacement(sb, appendsParts);
+					System.out.println("↓↓↓↓↓↓↓↓↓↓");
+					System.out.println(m.group());
+					System.out.println("↑↑↑↑↑↑↑↑↑");
 				}
 				m.appendTail(sb);
 				body = sb.toString();
