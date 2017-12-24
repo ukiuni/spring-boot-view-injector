@@ -47,7 +47,12 @@ public class InjectDependenciesResource implements Resource {
 			blockPattern = String.format(blockPattern, blockPattern + "|");
 		}
 		blockPattern = String.format(blockPattern, "");
-		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectJS){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>function\\s*\\(\\s*\\)\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)(.|blockPattern)*?))\\s*(?<end>;|\\n|,))";
+		String arrayPattern = "(\\[(%s[^\\]]*?)*?\\])*?";
+		for (int i = 0; i < 5; i++) {
+			arrayPattern = String.format(arrayPattern, arrayPattern+"|");
+		}
+		arrayPattern = String.format(arrayPattern, "");
+		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectJS){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>function\\s*\\(\\s*\\)\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|"+blockPattern+"|"+arrayPattern+")*?))\\s*(?<end>;|\\n|,))";
 		jsReplacePatternParam = Pattern.compile(patternSrc);
 	}
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
@@ -83,7 +88,7 @@ public class InjectDependenciesResource implements Resource {
 						if ("inject".equals(m.group("command"))) {
 							return appendsParts -> m.group("def") + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group("end");
 						} else {
-							return appendsParts -> m.group("def") + Matcher.quoteReplacement(appendsParts) + ";";
+							return appendsParts -> m.group("def") + Matcher.quoteReplacement(appendsParts) + m.group("end");
 						}
 					}
 				});
@@ -144,9 +149,6 @@ public class InjectDependenciesResource implements Resource {
 					String appendsParts = createParts(request, handler, pathInResource);
 					appendsParts = replacer.getReplaceFunction(m).apply(appendsParts);
 					m.appendReplacement(sb, appendsParts);
-					System.out.println("↓↓↓↓↓↓↓↓↓↓");
-					System.out.println(m.group());
-					System.out.println("↑↑↑↑↑↑↑↑↑");
 				}
 				m.appendTail(sb);
 				body = sb.toString();
