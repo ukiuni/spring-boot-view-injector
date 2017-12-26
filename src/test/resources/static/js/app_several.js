@@ -36,3 +36,24 @@ const controller4 = {
 		controller: ()=>{
 		}
 }
+
+const controller5 = {
+		/** @injectJS("http://localhost:8080/api") */
+		template :  () => {
+			
+		},
+		controller: ()=>{
+		}
+}
+
+
+/** @injectJS("http://localhost:8080/api") */
+let controller6  = () => {
+	
+}
+/** @injectJS("http://localhost:8080/api") */
+const controller7  = function(){
+	
+}
+/** @injectJS("http://localhost:8080/api") */
+var controller8 = 99;
