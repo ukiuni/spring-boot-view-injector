@@ -52,7 +52,7 @@ public class InjectDependenciesResource implements Resource {
 			arrayPattern = String.format(arrayPattern, arrayPattern+"|");
 		}
 		arrayPattern = String.format(arrayPattern, "");
-		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectJS){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const|let)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>(function)?\\s*\\(\\s*\\)\\s*(=>)?\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|"+blockPattern+"|"+arrayPattern+")*?))\\s*(?<end>;|\\n|,))";
+		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectAsString){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const|let)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>(function)?\\s*\\(\\s*\\)\\s*(=>)?\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|"+blockPattern+"|"+arrayPattern+")*?))\\s*(?<end>;|\\n|,))";
 		jsReplacePatternParam = Pattern.compile(patternSrc);
 	}
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
@@ -85,7 +85,7 @@ public class InjectDependenciesResource implements Resource {
 					}
 
 					public Function<String, String> getReplaceFunction(Matcher m) {
-						if ("inject".equals(m.group("command"))) {
+						if ("injectAsString".equals(m.group("command"))) {
 							return appendsParts -> m.group("def") + Matcher.quoteReplacement("\"" + appendsParts.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"") + m.group("end");
 						} else {
 							return appendsParts -> m.group("def") + Matcher.quoteReplacement(appendsParts) + m.group("end");

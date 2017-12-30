@@ -24,10 +24,6 @@ import org.springframework.util.StreamUtils;
 @TestPropertySource(properties = { //
 		"spring.injector.complessJS=false", //
 		"spring.injector.complessCss=false", //
-		"spring.injector.injectJSToHTML=true", //
-		"spring.injector.injectCssToHTML=true", //
-		"spring.injector.injectImageToHTML=true", //
-		"spring.injector.injectToJS=true"//
 })
 public class NoComplessInjectorTests {
 	private static ConfigurableApplicationContext context;

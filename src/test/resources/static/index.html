@@ -6,11 +6,11 @@
 <script type="text/javascript"
 	src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
 <script type="text/javascript">
-	/** @injectJS("http://localhost:8080/api") */
+	/** @inject("http://localhost:8080/api") */
 	var arg = function() {
 		alert("test");
 	};
-	/** @inject("http://localhost:8080/api") */
+	/** @injectAsString("http://localhost:8080/api") */
 	var arg2 = "test";
 </script>
 <script type="application/javascript" src="js/app1.js"></script>
