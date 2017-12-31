@@ -57,7 +57,7 @@ public class InjectDependenciesResource implements Resource {
 	}
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
 	private static final Pattern cssTagReplacePattern = Pattern.compile("<\\s*link\\s+.*href=\"(.*)\".*>");
-	private static final Pattern imgTagReplacePattern = Pattern.compile("<\\s*img\\s+.*src=\"(.*)\".*>");
+	private static final Pattern imgTagReplacePattern = Pattern.compile("<\\s*img\\s+.*src=\"(?<resource>.*(\\.png|\\.jpg|\\.jpeg))\".*>");
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
 	private InjectDependenciesResourceOperations operations;
