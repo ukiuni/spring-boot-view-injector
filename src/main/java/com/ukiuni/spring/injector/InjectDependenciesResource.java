@@ -17,6 +17,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,6 +42,7 @@ import com.yahoo.platform.yui.compressor.CssCompressor;
 
 public class InjectDependenciesResource implements Resource {
 	private final Resource resource;
+	private static final Map<String, byte[]> cache = new WeakHashMap<>();
 	private static final Pattern jsReplacePatternParam;
 	static {
 		String blockPattern = "(\\{(%s[^\\}]*?)*?\\})*?";
@@ -49,10 +52,10 @@ public class InjectDependenciesResource implements Resource {
 		blockPattern = String.format(blockPattern, "");
 		String arrayPattern = "(\\[(%s[^\\]]*?)*?\\])*?";
 		for (int i = 0; i < 5; i++) {
-			arrayPattern = String.format(arrayPattern, arrayPattern+"|");
+			arrayPattern = String.format(arrayPattern, arrayPattern + "|");
 		}
 		arrayPattern = String.format(arrayPattern, "");
-		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectAsString){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const|let)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>(function)?\\s*\\(\\s*\\)\\s*(=>)?\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|"+blockPattern+"|"+arrayPattern+")*?))\\s*(?<end>;|\\n|,))";
+		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectAsString){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const|let)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>(function)?\\s*\\(\\s*\\)\\s*(=>)?\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|" + blockPattern + "|" + arrayPattern + ")*?))\\s*(?<end>;|\\n|,))";
 		jsReplacePatternParam = Pattern.compile(patternSrc);
 	}
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
@@ -63,7 +66,7 @@ public class InjectDependenciesResource implements Resource {
 	private InjectDependenciesResourceOperations operations;
 
 	public InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
-		this.operations = null != operations ? operations : InjectDependenciesResourceOperations.of(true, true, true, true, true, true);
+		this.operations = null != operations ? operations : InjectDependenciesResourceOperations.of(true, true, true, true, true, true, true);
 		this.resource = resource;
 		if (null == resource || !resource.exists()) {
 			contentsLength = -1;
@@ -71,6 +74,12 @@ public class InjectDependenciesResource implements Resource {
 			return;
 		}
 		try {
+			byte[] cached = cache.get(request.getRequestURI());
+			if (null != cached) {
+				contentsLength = cached.length;
+				resourceInputStream = new ByteArrayInputStream(cached);
+				return;
+			}
 			String body = StreamUtils.copyToString(resource.getInputStream(), Charset.forName("UTF-8"));
 			List<Replacer> replacers = new ArrayList<>();
 			if (this.operations.isInjectToJS()) {
@@ -156,6 +165,9 @@ public class InjectDependenciesResource implements Resource {
 			byte[] resourceBytes = body.getBytes(Charset.forName("UTF-8"));
 			contentsLength = resourceBytes.length;
 			resourceInputStream = new ByteArrayInputStream(resourceBytes);
+			if (this.operations.isUseCache()) {
+				cache.put(resource.getURI().toString(), resourceBytes);
+			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

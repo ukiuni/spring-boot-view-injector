@@ -110,6 +110,7 @@ spring:
     injectCssToHTML: true
     injectImageToHTML: true
     injectToJS: true
+    useCache: true
 ```
 
 | config | description | default | able | required | 
@@ -120,6 +121,7 @@ spring:
 | injectCssToHTML | Inject CSS to HTML or not | true | true or false | no |
 | injectImageToHTML | Inject Image to HTML or not | true | true or false | no |
 | injectToJS | Inject JavaScript to JavaScript or not | true | true or false | no |
+| injectToJS | Cache injected resources or not | true | true or false | no |
 
 Use this config for debug.
 I believe these all are all able to true at production.

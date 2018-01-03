@@ -21,4 +21,5 @@ public class InjectDependenciesResourceOperations {
 	private boolean injectCssToHTML = true;
 	private boolean injectImageToHTML = true;
 	private boolean injectToJS = true;
+	private boolean useCache = true;
 }
