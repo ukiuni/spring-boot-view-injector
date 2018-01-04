@@ -18,7 +18,7 @@ apply plugin: 'signing'
 
 group = 'com.ukiuni'
 archivesBaseName = 'spring-boot-view-injector'
-version = '0.0.8'
+version = '0.0.9'
 description = 'inject javascript to linked static html.'
 
 sourceCompatibility = 1.8

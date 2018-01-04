@@ -55,7 +55,7 @@ public class InjectDependenciesResource implements Resource {
 			arrayPattern = String.format(arrayPattern, arrayPattern + "|");
 		}
 		arrayPattern = String.format(arrayPattern, "");
-		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectAsString){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const|let)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>(function)?\\s*\\(\\s*\\)\\s*(=>)?\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|" + blockPattern + "|" + arrayPattern + ")*?))\\s*(?<end>;|\\n|,))";
+		String patternSrc = "\\/\\*\\*\\s*@(?<command>inject|injectAsString){1}\\(\"(?<resource>.*)\"\\)\\s*\\*\\/\\n\\s*(?<def>((var|const|let)\\s*.*?\\s*=\\s*)|(.*?\\s*?:\\s*?)){1}?(((?<function>(function)?\\s*\\(\\s*\\)\\s*(=>)?\\s*(\\{(" + blockPattern + "|[^\\}]*?)*\\})*?)|(?<be>(?<!function)([^\\{\\[]|" + blockPattern + "|" + arrayPattern + ")*?))\\s*(?<end>;|\\n|,|\\}))";
 		jsReplacePatternParam = Pattern.compile(patternSrc);
 	}
 	private static final Pattern jsTagReplacePattern = Pattern.compile("<\\s*script\\s+.*src=\"(.*)\".*>.*<\\s*/script\\s*>");
@@ -64,8 +64,29 @@ public class InjectDependenciesResource implements Resource {
 	private final long contentsLength;
 	private final InputStream resourceInputStream;
 	private InjectDependenciesResourceOperations operations;
+	private BooleanWrapper currentResourceCacheable = new BooleanWrapper(true);
+
+	private static class BooleanWrapper {
+		private boolean bool;
+
+		public BooleanWrapper(boolean bool) {
+			this.bool = bool;
+		}
+
+		public boolean isTrue() {
+			return this.bool;
+		}
+
+		public void setToFalse() {
+			this.bool = false;
+		}
+	}
 
 	public InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler) {
+		this(operations, request, resource, handler, new BooleanWrapper(true));
+	}
+
+	private InjectDependenciesResource(InjectDependenciesResourceOperations operations, HttpServletRequest request, Resource resource, ResourceHttpRequestHandler handler, BooleanWrapper isCacheable) {
 		this.operations = null != operations ? operations : InjectDependenciesResourceOperations.of(true, true, true, true, true, true, true);
 		this.resource = resource;
 		if (null == resource || !resource.exists()) {
@@ -155,7 +176,7 @@ public class InjectDependenciesResource implements Resource {
 						continue;
 					}
 					String pathInResource = replacer.getResource(m);
-					String appendsParts = createParts(request, handler, pathInResource);
+					String appendsParts = createParts(request, handler, pathInResource, currentResourceCacheable);
 					appendsParts = replacer.getReplaceFunction(m).apply(appendsParts);
 					m.appendReplacement(sb, appendsParts);
 				}
@@ -165,7 +186,7 @@ public class InjectDependenciesResource implements Resource {
 			byte[] resourceBytes = body.getBytes(Charset.forName("UTF-8"));
 			contentsLength = resourceBytes.length;
 			resourceInputStream = new ByteArrayInputStream(resourceBytes);
-			if (this.operations.isUseCache()) {
+			if (this.operations.isUseCache() && currentResourceCacheable.isTrue()) {
 				cache.put(resource.getURI().toString(), resourceBytes);
 			}
 		} catch (IOException e) {
@@ -173,10 +194,11 @@ public class InjectDependenciesResource implements Resource {
 		}
 	}
 
-	private String createParts(HttpServletRequest request, ResourceHttpRequestHandler handler, String pathInResource) throws MalformedURLException, IOException {
+	private String createParts(HttpServletRequest request, ResourceHttpRequestHandler handler, String pathInResource, BooleanWrapper isCachable) throws MalformedURLException, IOException {
 		boolean isHttp = pathInResource.startsWith("http://") || pathInResource.startsWith("https://");
 		Resource loadResource;
 		if (isHttp) {
+			isCachable.setToFalse();
 			loadResource = new UrlResource(pathInResource) {
 				@Override
 				public InputStream getInputStream() throws IOException {
@@ -198,7 +220,7 @@ public class InjectDependenciesResource implements Resource {
 				if (null == r) {
 					return new EmptyResource();
 				} else if (r.getFilename().endsWith(".js") || r.getFilename().endsWith(".css") || r.getFilename().endsWith(".html") || r.getFilename().endsWith(".htm")) {
-					return new InjectDependenciesResource(this.operations, request, r, handler);
+					return new InjectDependenciesResource(this.operations, request, r, handler, isCachable);
 				} else {
 					return r;
 				}

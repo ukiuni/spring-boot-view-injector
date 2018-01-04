@@ -14,12 +14,12 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.util.StreamUtils;
 
-public class InjectorSeveralTests {
+public class InjectorNoCacheTests {
 	private static ConfigurableApplicationContext context;
 
 	@BeforeClass
 	public static void init() {
-		InjectorSeveralTests.context = SpringApplication.run(DummyApplication.class);
+		InjectorNoCacheTests.context = SpringApplication.run(DummyApplication.class);
 	}
 
 	@AfterClass
@@ -29,9 +29,11 @@ public class InjectorSeveralTests {
 
 	@Test
 	public void injected() throws MalformedURLException, IOException {
-		HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:8080/several.html").openConnection();
-		String src = StreamUtils.copyToString(connection.getInputStream(), Charset.forName("UTF-8"));
-		Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/severalResult.html"), Charset.forName("UTF-8")), src);
+		for (int i = 1; i <= 2; i++) {
+			HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:8080/auth.html").openConnection();
+			connection.addRequestProperty("Authorization", "myAuth" + i);
+			String src = StreamUtils.copyToString(connection.getInputStream(), Charset.forName("UTF-8"));
+			Assert.assertEquals(StreamUtils.copyToString(this.getClass().getClassLoader().getResourceAsStream("expects/authResult" + i + ".html"), Charset.forName("UTF-8")), src);
+		}
 	}
-
 }
