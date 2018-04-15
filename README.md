@@ -23,7 +23,7 @@ Other case, Its inject HTML to JavaScript,
 ```js
 new Vue({
 	el: '#contents',
-	/** injectAsString("templates/other.html") */
+	/** @injectAsString("templates/other.html") */
 	template: null,
 	data: {
 		message:"hello"
@@ -53,7 +53,7 @@ As you know, Spring Boot View Injector designed to Use with [Vue.js](https://jp.
 And next case, You can inject JavaScript to JavaScript.
 
 ```js
-/** inject("app/showAView.js") */
+/** @inject("app/showAView.js") */
 const showAView = null;
 ```
 
@@ -61,7 +61,7 @@ app/showAView.js
 ```js
 new Vue({
 	el: '#contents',
-	/** injectAsString("templates/other.html") */
+	/** @injectAsString("templates/other.html") */
 	template: null,
 	data: {
 		message:"hello"
@@ -94,7 +94,7 @@ This library puts on [Maven Central](https://mvnrepository.com/artifact/com.ukiu
 build.gradle
 ```
 dependencies {
-	runtime group: 'com.ukiuni', name:'spring-boot-view-injector', version:'0.0.7'
+	runtime group: 'com.ukiuni', name:'spring-boot-view-injector', version:'0.0.9'
 }
 ```
 
