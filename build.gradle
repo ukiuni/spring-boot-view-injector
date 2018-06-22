@@ -18,7 +18,7 @@ apply plugin: 'signing'
 
 group = 'com.ukiuni'
 archivesBaseName = 'spring-boot-view-injector'
-version = '0.0.9'
+version = '0.0.10'
 description = 'inject javascript to linked static html.'
 
 sourceCompatibility = 1.8
@@ -29,7 +29,7 @@ repositories {
 
 
 dependencies {
-	compile group: 'com.google.javascript', name: 'closure-compiler', version: 'v20171203'
+	compile group: 'com.google.javascript', name: 'closure-compiler', version: 'v20180610'
 	compile group: 'com.yahoo.platform.yui', name: 'yuicompressor', version: '2.4.8'
 	
 	compileOnly('org.projectlombok:lombok')
