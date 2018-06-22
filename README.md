@@ -94,7 +94,7 @@ This library puts on [Maven Central](https://mvnrepository.com/artifact/com.ukiu
 build.gradle
 ```
 dependencies {
-	runtime group: 'com.ukiuni', name:'spring-boot-view-injector', version:'0.0.9'
+	runtime group: 'com.ukiuni', name:'spring-boot-view-injector', version:'0.0.10'
 }
 ```
 
